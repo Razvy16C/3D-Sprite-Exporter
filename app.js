@@ -1,3 +1,312 @@
+I've added a full Lighting category to the inspector panel and wired it directly into your Three.js scene, state persistence, presets, and backups.
+What Was Added
+ * Key Light (Main Light): Controls for Azimuth (-180^\circ to 180^\circ orbit), Elevation (-90^\circ to 90^\circ vertical angle), Intensity, and Color picker.
+ * Fill & Rim Lighting: Independent intensity sliders for the Fill Light (softens shadows on the opposite side) and Rim Light (back-edge separation highlight) plus a Rim Color picker.
+ * Ambient & Hemisphere Bounce: Ambient Intensity slider along with Sky and Ground hemisphere color pickers for realistic environmental bounce lighting.
+ * Tone Mapping / Exposure & Presets: Overall Exposure slider (renderer.toneMappingExposure), quick one-click lighting mood buttons (Studio, Warm Sun, Neon Rim, Dramatic), and full integration with your saved settings, custom presets, and JSON backups.
+1. Updated index.html
+(Insert the new <details class="group reveal" open> Lighting section right after the Transform accordion.)
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>3D Sprite Exporter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top reveal">
+    <div class="brand">
+      <div class="brand-badge" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 3 22 8v10l-9 5-9-5V8z"/><path d="M4 8l9 5 9-5M13 13v10"/></svg>
+      </div>
+      <div>
+        <h1>3D Sprite Exporter</h1>
+        <p>Turn a 3D model into 2D sprite images</p>
+      </div>
+    </div>
+    <div class="settings" id="settings">
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="Appearance settings" aria-expanded="false" aria-controls="pop">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+      </button>
+      <div class="pop" id="pop" role="dialog" aria-label="Appearance">
+        <div class="field">
+          <span class="lbl" id="lbl-theme">Page mode</span>
+          <div class="seg full" role="radiogroup" aria-labelledby="lbl-theme">
+            <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+            <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <span class="lbl">Accent color</span>
+          <div class="swatches" id="swatches"></div>
+          <div class="bgrow">
+            <input type="color" id="accent-custom" aria-label="Custom accent color">
+            <span class="mono muted" id="accent-hex"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <div class="stage-col">
+      <div class="stage" id="stage">
+        <canvas id="view" tabindex="0" aria-label="3D model preview. Drag to rotate, arrow keys rotate, scroll to zoom."></canvas>
+        <span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span>
+        <div class="readout" id="readout"></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="btn-export" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export sprite</span>
+        </button>
+        <button class="btn" id="btn-reset-view" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Reset view</span>
+        </button>
+      </div>
+      <p class="hint">
+        <kbd>Drag</kbd> Rotate &nbsp;·&nbsp; <kbd>Shift + Drag</kbd> Pan &nbsp;·&nbsp; <kbd>Scroll</kbd> Zoom
+      </p>
+    </div>
+
+    <div class="panel-col">
+      <section class="caps card reveal" id="caps" hidden>
+        <span class="lbl">Captures · tap to save again</span>
+        <div class="caps-list" id="cap-list"></div>
+      </section>
+
+      <details class="group reveal" open>
+        <summary>Model</summary>
+        <div class="body">
+          <div class="model-card">
+            <div class="mname" id="model-name">Sample robot</div>
+            <div class="muted mono" id="model-meta"></div>
+          </div>
+          <div class="btnrow">
+            <button class="btn" id="btn-load" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>Open model…</span>
+            </button>
+            <button class="btn" id="btn-sample" type="button">Sample robot</button>
+          </div>
+          <input type="file" id="model-file" accept=".glb,.gltf,.fbx,.obj,.stl,.bin,image/*" multiple hidden>
+          <p class="note">Opens GLB, GLTF, FBX, OBJ and STL. For a .gltf or .fbx with separate texture files, select the textures together with the model. OBJ and STL open with a plain material.</p>
+        </div>
+      </details>
+
+      <details class="group reveal" open>
+        <summary>Transform</summary>
+        <div class="body">
+          <div class="field"><span class="lbl">Position</span><div class="axes" id="position-axes"></div></div>
+          <div class="field"><span class="lbl">Rotation (degrees)</span><div class="axes" id="rotation-axes"></div></div>
+          <div class="field"><span class="lbl">Zoom</span><div class="axes" id="zoom-axes"></div></div>
+          <div class="btnrow"><button class="btn small" id="btn-reset-transform" type="button">Reset transform</button></div>
+        </div>
+      </details>
+
+      <details class="group reveal" open>
+        <summary>Lighting</summary>
+        <div class="body">
+          <div class="field">
+            <span class="lbl">Quick rigs</span>
+            <div class="btnrow" id="light-rigs">
+              <button class="btn small" type="button" data-rig="studio">Studio</button>
+              <button class="btn small" type="button" data-rig="sun">Warm Sun</button>
+              <button class="btn small" type="button" data-rig="neon">Neon Rim</button>
+              <button class="btn small" type="button" data-rig="dramatic">Dramatic</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="split-lbl">
+              <span class="lbl">Key light</span>
+              <div class="color-chip">
+                <input type="color" id="light-key-color" aria-label="Key light color">
+                <span class="mono muted" id="light-key-hex">#FFFFFF</span>
+              </div>
+            </div>
+            <div class="axes" id="light-key-axes"></div>
+          </div>
+
+          <div class="field">
+            <div class="split-lbl">
+              <span class="lbl">Fill &amp; Rim light</span>
+              <div class="color-chip">
+                <span class="muted" style="font-size:11px">Rim</span>
+                <input type="color" id="light-rim-color" aria-label="Rim light color">
+              </div>
+            </div>
+            <div class="axes" id="light-fill-axes"></div>
+          </div>
+
+          <div class="field">
+            <span class="lbl">Environment &amp; Exposure</span>
+            <div class="axes" id="light-env-axes"></div>
+            <div class="two" style="margin-top:4px">
+              <div class="color-chip-box">
+                <input type="color" id="light-sky-color" aria-label="Sky bounce color">
+                <div>
+                  <div class="lbl" style="font-size:10px">Sky bounce</div>
+                  <div class="mono muted" id="light-sky-hex">#FFFFFF</div>
+                </div>
+              </div>
+              <div class="color-chip-box">
+                <input type="color" id="light-ground-color" aria-label="Ground bounce color">
+                <div>
+                  <div class="lbl" style="font-size:10px">Ground bounce</div>
+                  <div class="mono muted" id="light-ground-hex">#8890A0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn small" id="btn-reset-lighting" type="button">Reset lighting</button>
+          </div>
+        </div>
+      </details>
+
+      <details class="group reveal" open>
+        <summary>Export</summary>
+        <div class="body">
+          <div class="two">
+            <div class="field">
+              <span class="lbl" id="lbl-format">Format</span>
+              <div class="seg full" role="radiogroup" aria-labelledby="lbl-format">
+                <label><input type="radio" name="format" value="png"><span>PNG</span></label>
+                <label><input type="radio" name="format" value="jpg"><span>JPG</span></label>
+                <label><input type="radio" name="format" value="jpeg"><span>JPEG</span></label>
+              </div>
+            </div>
+            <div class="field">
+              <span class="lbl" id="lbl-alpha">Alpha</span>
+              <div class="seg full" role="radiogroup" aria-labelledby="lbl-alpha">
+                <label><input type="radio" name="alpha" value="opaque"><span>Opaque</span></label>
+                <label><input type="radio" name="alpha" value="transparent"><span>Clear</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="warn" id="warn" role="alert" hidden>Transparent mode can't be used because PNG isn't selected. JPG and JPEG can't store transparency, so the sprite exports with the background below. Choose PNG for a transparent sprite.</div>
+          <fieldset class="field" id="bg-set">
+            <legend class="lbl">Background</legend>
+            <div class="bg-controls">
+              <div class="seg" role="radiogroup" aria-label="Background type">
+                <label><input type="radio" name="bgmode" value="color"><span>Color</span></label>
+                <label><input type="radio" name="bgmode" value="image"><span>Image</span></label>
+              </div>
+              <div class="bgrow" id="bg-color-wrap">
+                <input type="color" id="bg-color" aria-label="Background color">
+                <span class="mono muted" id="bg-color-hex"></span>
+              </div>
+              <div class="bgrow" id="bg-image-wrap" hidden>
+                <span class="thumb-bg" id="bg-thumb"></span>
+                <button class="btn small" id="btn-bg" type="button">Import…</button>
+                <button class="btn small" id="btn-bg-clear" type="button">Remove</button>
+                <input type="file" id="bg-file" accept="image/*" hidden>
+              </div>
+            </div>
+            <p class="note" id="bg-note"></p>
+          </fieldset>
+          <div class="two">
+            <div class="field"><label class="lbl" for="size">Size (px)</label>
+              <select id="size"></select></div>
+            <div class="field"><label class="lbl" for="filename">File name</label>
+              <input type="text" id="filename" maxlength="40" autocomplete="off" spellcheck="false"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="group reveal">
+        <summary>Presets</summary>
+        <div class="body">
+          <div class="preset-add">
+            <input type="text" id="preset-name" maxlength="40" placeholder="Preset name…" aria-label="Preset name" autocomplete="off">
+            <button class="btn" id="btn-preset-save" type="button">Save current</button>
+          </div>
+          <ul class="presets" id="preset-list"></ul>
+          <p class="note">Presets keep position, rotation, zoom, lighting, format, alpha, size and background color.</p>
+        </div>
+      </details>
+
+      <details class="group reveal">
+        <summary>Saved settings</summary>
+        <div class="body">
+          <p class="note" id="save-status">Your last used settings are saved automatically in this browser.</p>
+          <div class="btnrow">
+            <button class="btn small" id="btn-backup" type="button">Export backup</button>
+            <button class="btn small" id="btn-import" type="button">Import backup…</button>
+            <button class="btn small" id="btn-defaults" type="button">Reset to defaults</button>
+          </div>
+          <input type="file" id="backup-file" accept=".json,application/json" hidden>
+          <p class="note">A backup file holds your settings, accent color and presets, so you can move them to another browser.</p>
+        </div>
+      </details>
+    </div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/fflate.min.js"></script>
+<script src="vendor/NURBSUtils.js"></script>
+<script src="vendor/NURBSCurve.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="vendor/OBJLoader.js"></script>
+<script src="vendor/STLLoader.js"></script>
+<script src="vendor/FBXLoader.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
+
+2. Additions to style.css
+(Add these styles to style.css to support the wider lighting labels like AZM, ELV, INT, FILL, RIM, AMB, EXP, and the inline color chip headers.)
+/* Lighting & wider axis labels */
+.split-lbl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-chip input[type=color] {
+  width: 26px;
+  height: 22px;
+  padding: 1px;
+  border-radius: 5px;
+}
+
+.color-chip-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.color-chip-box input[type=color] {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+
+.axis.wide {
+  grid-template-columns: 36px minmax(0, 1fr) 68px;
+}
+
+3. Updated app.js
+(Includes spherical coordinate math for directional key light positioning, real-time light intensity/color/exposure updates, built-in lighting rigs, and full sanitization/persistence.)
 (function () {
   'use strict';
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -19,11 +328,27 @@
   try { localStorage.setItem('spriteBooth.test', '1'); localStorage.removeItem('spriteBooth.test'); } catch (e) { storageOK = false; }
 
   /* ---------- settings model ---------- */
+  function defaultLight() {
+    return {
+      keyAzimuth: 37,
+      keyElevation: 45,
+      keyIntensity: 1.1,
+      keyColor: '#ffffff',
+      fillIntensity: 0.4,
+      rimIntensity: 0.35,
+      rimColor: '#c7d8ff',
+      ambientIntensity: 0.9,
+      skyColor: '#ffffff',
+      groundColor: '#8890a0',
+      exposure: 1.0
+    };
+  }
   function defaults() {
     var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
     return {
       theme: dark ? 'dark' : 'light', accent: '#2d55e6',
       pos: { x: 0, y: 0, z: 0 }, rot: { x: 12, y: -28, z: 0 }, zoom: 1,
+      light: defaultLight(),
       format: 'png', size: 512, alpha: 'transparent',
       bgMode: 'color', bgColor: '#ffffff', bgImage: null, filename: 'sprite'
     };
@@ -31,6 +356,21 @@
   function num(v, min, max, d) { v = parseFloat(v); return isFinite(v) ? clamp(v, min, max) : d; }
   var IMG_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+\/=]+$/;
   var HEX_RE = /^#[0-9a-f]{6}$/i;
+  function sanitizeLight(l, base) {
+    var d = clone(base || defaultLight()); l = l || {};
+    d.keyAzimuth = num(l.keyAzimuth, -180, 180, d.keyAzimuth);
+    d.keyElevation = num(l.keyElevation, -90, 90, d.keyElevation);
+    d.keyIntensity = num(l.keyIntensity, 0, 5, d.keyIntensity);
+    if (typeof l.keyColor === 'string' && HEX_RE.test(l.keyColor)) d.keyColor = l.keyColor.toLowerCase();
+    d.fillIntensity = num(l.fillIntensity, 0, 3, d.fillIntensity);
+    d.rimIntensity = num(l.rimIntensity, 0, 4, d.rimIntensity);
+    if (typeof l.rimColor === 'string' && HEX_RE.test(l.rimColor)) d.rimColor = l.rimColor.toLowerCase();
+    d.ambientIntensity = num(l.ambientIntensity, 0, 3, d.ambientIntensity);
+    if (typeof l.skyColor === 'string' && HEX_RE.test(l.skyColor)) d.skyColor = l.skyColor.toLowerCase();
+    if (typeof l.groundColor === 'string' && HEX_RE.test(l.groundColor)) d.groundColor = l.groundColor.toLowerCase();
+    d.exposure = num(l.exposure, 0.2, 2.5, d.exposure);
+    return d;
+  }
   function sanitize(o, base) {
     var s = clone(base); o = o || {};
     if (o.theme === 'light' || o.theme === 'dark') s.theme = o.theme;
@@ -39,6 +379,7 @@
     s.pos = { x: num(p.x, -2, 2, s.pos.x), y: num(p.y, -2, 2, s.pos.y), z: num(p.z, -2, 2, s.pos.z) };
     s.rot = { x: num(r.x, -180, 180, s.rot.x), y: num(r.y, -180, 180, s.rot.y), z: num(r.z, -180, 180, s.rot.z) };
     s.zoom = num(o.zoom, 0.3, 3, s.zoom);
+    s.light = sanitizeLight(o.light, s.light);
     if (['png', 'jpg', 'jpeg'].indexOf(o.format) > -1) s.format = o.format;
     if (SIZES.indexOf(+o.size) > -1) s.size = +o.size;
     if (o.alpha === 'opaque' || o.alpha === 'transparent') s.alpha = o.alpha;
@@ -57,7 +398,7 @@
     });
   })();
   function presetFrom(s) {
-    return { pos: clone(s.pos), rot: clone(s.rot), zoom: s.zoom, format: s.format, size: s.size, alpha: s.alpha, bgMode: s.bgMode, bgColor: s.bgColor };
+    return { pos: clone(s.pos), rot: clone(s.rot), zoom: s.zoom, light: clone(s.light), format: s.format, size: s.size, alpha: s.alpha, bgMode: s.bgMode, bgColor: s.bgColor };
   }
 
   /* ---------- accent color ---------- */
@@ -97,6 +438,7 @@
   /* ---------- three.js scene ---------- */
   var stage = $('#stage'), canvas = $('#view');
   var renderer, scene, camera, pivot, holder;
+  var lights = {};
   var queued = false;
   function requestRender() {
     if (queued || !renderer) return;
@@ -107,15 +449,63 @@
     if (!window.THREE) throw new Error('three.js did not load');
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     renderer.setClearColor(0x000000, 0);
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.9));
-    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-    var key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(3, 5, 4); scene.add(key);
-    var fill = new THREE.DirectionalLight(0xffffff, 0.4); fill.position.set(-4, 1, -3); scene.add(fill);
+
+    lights.hemi = new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.9);
+    scene.add(lights.hemi);
+
+    lights.ambient = new THREE.AmbientLight(0xffffff, 0.2);
+    scene.add(lights.ambient);
+
+    lights.key = new THREE.DirectionalLight(0xffffff, 1.1);
+    scene.add(lights.key);
+
+    lights.fill = new THREE.DirectionalLight(0xffffff, 0.4);
+    scene.add(lights.fill);
+
+    lights.rim = new THREE.DirectionalLight(0xc7d8ff, 0.35);
+    scene.add(lights.rim);
+
     pivot = new THREE.Group(); holder = new THREE.Group();
     pivot.add(holder); scene.add(pivot);
+    applyLighting();
+  }
+  function applyLighting() {
+    if (!renderer || !lights.key) return;
+    var L = state.light;
+    var az = rad(L.keyAzimuth);
+    var el = rad(L.keyElevation);
+    var dist = 7;
+    var cosEl = Math.cos(el);
+    var kx = dist * cosEl * Math.sin(az);
+    var ky = dist * Math.sin(el);
+    var kz = dist * cosEl * Math.cos(az);
+
+    lights.key.position.set(kx, ky, kz);
+    lights.key.color.set(L.keyColor);
+    lights.key.intensity = L.keyIntensity;
+
+    // Fill sits opposite the key azimuth at softer elevation
+    lights.fill.position.set(-kx * 0.85, Math.max(1.2, -ky * 0.35 + 1.5), -kz * 0.5 + 2.5);
+    lights.fill.color.set(L.skyColor);
+    lights.fill.intensity = L.fillIntensity;
+
+    // Rim sits behind the model opposite key light for edge highlights
+    lights.rim.position.set(-kx * 0.7, Math.abs(ky) * 0.6 + 2.0, -Math.abs(kz) - 3.5);
+    lights.rim.color.set(L.rimColor);
+    lights.rim.intensity = L.rimIntensity;
+
+    lights.hemi.color.set(L.skyColor);
+    lights.hemi.groundColor.set(L.groundColor);
+    lights.hemi.intensity = L.ambientIntensity;
+    lights.ambient.intensity = L.ambientIntensity * 0.22;
+
+    renderer.toneMappingExposure = L.exposure;
+    requestRender();
   }
   function resize() {
     if (!renderer) return;
@@ -243,20 +633,32 @@
   }
 
   /* ---------- axis rows ---------- */
-  function makeRow(host, id, label, aria, min, max, step) {
-    var row = document.createElement('div'); row.className = 'axis';
+  function makeRow(host, id, label, aria, min, max, step, wide) {
+    var row = document.createElement('div'); row.className = 'axis' + (wide ? ' wide' : '');
     row.innerHTML = '<label for="' + id + '">' + label + '</label>' +
       '<input type="range" id="' + id + '-range" aria-label="' + aria + '" min="' + min + '" max="' + max + '" step="' + step + '">' +
       '<input type="number" id="' + id + '" step="any" inputmode="decimal">';
     host.appendChild(row);
   }
   var GROUPS = { pos: [-2, 2], rot: [-180, 180] };
+  var LIGHT_SPECS = [
+    { id: 'light-key-az', key: 'keyAzimuth', host: '#light-key-axes', label: 'AZM', aria: 'Key light azimuth angle', min: -180, max: 180, step: 1, dec: 0 },
+    { id: 'light-key-el', key: 'keyElevation', host: '#light-key-axes', label: 'ELV', aria: 'Key light elevation angle', min: -90, max: 90, step: 1, dec: 0 },
+    { id: 'light-key-int', key: 'keyIntensity', host: '#light-key-axes', label: 'INT', aria: 'Key light intensity', min: 0, max: 5, step: 0.05, dec: 2 },
+    { id: 'light-fill-int', key: 'fillIntensity', host: '#light-fill-axes', label: 'FILL', aria: 'Fill light intensity', min: 0, max: 3, step: 0.05, dec: 2 },
+    { id: 'light-rim-int', key: 'rimIntensity', host: '#light-fill-axes', label: 'RIM', aria: 'Rim light intensity', min: 0, max: 4, step: 0.05, dec: 2 },
+    { id: 'light-amb-int', key: 'ambientIntensity', host: '#light-env-axes', label: 'AMB', aria: 'Ambient bounce intensity', min: 0, max: 3, step: 0.05, dec: 2 },
+    { id: 'light-exp', key: 'exposure', host: '#light-env-axes', label: 'EXP', aria: 'Scene exposure', min: 0.2, max: 2.5, step: 0.05, dec: 2 }
+  ];
   function buildAxes() {
     ['x', 'y', 'z'].forEach(function (k) {
       makeRow($('#position-axes'), 'pos-' + k, k.toUpperCase(), 'Position ' + k.toUpperCase(), -2, 2, 0.01);
       makeRow($('#rotation-axes'), 'rot-' + k, k.toUpperCase(), 'Rotation ' + k.toUpperCase(), -180, 180, 0.5);
     });
     makeRow($('#zoom-axes'), 'zoom', '×', 'Zoom', 0.3, 3, 0.01);
+    LIGHT_SPECS.forEach(function (sp) {
+      makeRow($(sp.host), sp.id, sp.label, sp.aria, sp.min, sp.max, sp.step, true);
+    });
   }
   function fmt(v, d) { return String(Number(v.toFixed(d))); }
   function setAxis(group, key, v) {
@@ -271,6 +673,9 @@
     };
     ['x', 'y', 'z'].forEach(function (k) { set('pos-' + k, state.pos[k], 2); set('rot-' + k, state.rot[k], 1); });
     set('zoom', state.zoom, 2);
+    LIGHT_SPECS.forEach(function (sp) {
+      set(sp.id, state.light[sp.key], sp.dec);
+    });
   }
   function wireAxes() {
     function bind(id, group, key) {
@@ -286,7 +691,41 @@
     }
     ['x', 'y', 'z'].forEach(function (k) { bind('pos-' + k, 'pos', k); bind('rot-' + k, 'rot', k); });
     bind('zoom', 'zoom', null);
+
+    LIGHT_SPECS.forEach(function (sp) {
+      var n = $('#' + sp.id), r = $('#' + sp.id + '-range');
+      r.addEventListener('input', function () {
+        state.light[sp.key] = clamp(parseFloat(r.value), sp.min, sp.max);
+        syncAxes(r); applyLighting(); persist();
+      });
+      n.addEventListener('input', function () {
+        var v = parseFloat(n.value); if (!isFinite(v)) return;
+        state.light[sp.key] = clamp(v, sp.min, sp.max);
+        syncAxes(n); applyLighting(); persist();
+      });
+      n.addEventListener('change', function () { syncAxes(); });
+    });
   }
+
+  /* ---------- lighting rigs ---------- */
+  var LIGHT_RIGS = {
+    studio: defaultLight(),
+    sun: {
+      keyAzimuth: 52, keyElevation: 58, keyIntensity: 1.65, keyColor: '#fff1d6',
+      fillIntensity: 0.45, rimIntensity: 0.3, rimColor: '#ffe4b5',
+      ambientIntensity: 0.95, skyColor: '#dbeafe', groundColor: '#a89f91', exposure: 1.05
+    },
+    neon: {
+      keyAzimuth: -48, keyElevation: 28, keyIntensity: 1.35, keyColor: '#38bdf8',
+      fillIntensity: 0.25, rimIntensity: 1.5, rimColor: '#f43f5e',
+      ambientIntensity: 0.65, skyColor: '#818cf8', groundColor: '#1e1b4b', exposure: 1.1
+    },
+    dramatic: {
+      keyAzimuth: 72, keyElevation: 20, keyIntensity: 2.1, keyColor: '#ffffff',
+      fillIntensity: 0.1, rimIntensity: 0.85, rimColor: '#93c5fd',
+      ambientIntensity: 0.35, skyColor: '#64748b', groundColor: '#18181b', exposure: 1.05
+    }
+  };
 
   /* ---------- background helpers ---------- */
   var bgImgEl = null;
@@ -340,6 +779,13 @@
     $('#accent-custom').value = state.accent;
     $('#accent-hex').textContent = state.accent.toUpperCase();
     syncAxes();
+    $('#light-key-color').value = state.light.keyColor;
+    $('#light-key-hex').textContent = state.light.keyColor.toUpperCase();
+    $('#light-rim-color').value = state.light.rimColor;
+    $('#light-sky-color').value = state.light.skyColor;
+    $('#light-sky-hex').textContent = state.light.skyColor.toUpperCase();
+    $('#light-ground-color').value = state.light.groundColor;
+    $('#light-ground-hex').textContent = state.light.groundColor.toUpperCase();
     $('#size').value = String(state.size);
     $('#filename').value = state.filename;
     $('#bg-color').value = state.bgColor;
@@ -357,6 +803,7 @@
     else if (state.bgMode === 'image' && state.bgImage) stage.style.background = 'center / cover no-repeat url("' + state.bgImage + '") ' + state.bgColor;
     else stage.style.background = state.bgColor;
     applyTransform();
+    applyLighting();
   }
 
   /* ---------- persistence ---------- */
@@ -376,7 +823,7 @@
 
   /* ---------- presets ---------- */
   function P(name, rot, extra) {
-    return { name: name, builtin: true, s: Object.assign({ pos: { x: 0, y: 0, z: 0 }, rot: rot, zoom: 1, format: 'png', size: 512, alpha: 'transparent', bgMode: 'color', bgColor: '#ffffff' }, extra || {}) };
+    return { name: name, builtin: true, s: Object.assign({ pos: { x: 0, y: 0, z: 0 }, rot: rot, zoom: 1, light: defaultLight(), format: 'png', size: 512, alpha: 'transparent', bgMode: 'color', bgColor: '#ffffff' }, extra || {}) };
   }
   var BUILTIN = [
     P('Front', { x: 0, y: 0, z: 0 }),
@@ -632,6 +1079,22 @@
     });
     $('#accent-custom').addEventListener('input', function (e) { state.accent = e.target.value.toLowerCase(); syncAll(); persist(); });
     $('#bg-color').addEventListener('input', function (e) { state.bgColor = e.target.value; syncAll(); persist(); });
+
+    /* Lighting color pickers & quick rigs */
+    $('#light-key-color').addEventListener('input', function (e) { state.light.keyColor = e.target.value.toLowerCase(); syncAll(); persist(); });
+    $('#light-rim-color').addEventListener('input', function (e) { state.light.rimColor = e.target.value.toLowerCase(); syncAll(); persist(); });
+    $('#light-sky-color').addEventListener('input', function (e) { state.light.skyColor = e.target.value.toLowerCase(); syncAll(); persist(); });
+    $('#light-ground-color').addEventListener('input', function (e) { state.light.groundColor = e.target.value.toLowerCase(); syncAll(); persist(); });
+    $('#light-rigs').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-rig]');
+      if (!btn) return;
+      var rig = LIGHT_RIGS[btn.dataset.rig];
+      if (rig) { state.light = clone(rig); syncAll(); persist(); toast('Applied ' + btn.textContent + ' lighting'); }
+    });
+    $('#btn-reset-lighting').addEventListener('click', function () {
+      state.light = defaultLight(); syncAll(); persist();
+    });
+
     $('#filename').addEventListener('input', function (e) { state.filename = e.target.value; persist(); });
     $('#btn-export').addEventListener('click', exportSprite);
     $('#btn-reset-view').addEventListener('click', function () {
@@ -683,3 +1146,4 @@
   doPersist();
   initReveal();
 })();
+
