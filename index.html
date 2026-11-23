@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#090909">
 <title>3D Sprite Exporter</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="app">
   <header class="top reveal">
     <div class="brand">
-      <svg width="30" height="30" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M13 3 22 8v10l-9 5-9-5V8z"/><path d="M4 8l9 5 9-5M13 13v10"/></svg>
+      <div class="brand-badge" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 3 22 8v10l-9 5-9-5V8z"/><path d="M4 8l9 5 9-5M13 13v10"/></svg>
+      </div>
       <div>
         <h1>3D Sprite Exporter</h1>
         <p>Turn a 3D model into 2D sprite images</p>
@@ -26,7 +26,7 @@
       <div class="pop" id="pop" role="dialog" aria-label="Appearance">
         <div class="field">
           <span class="lbl" id="lbl-theme">Page mode</span>
-          <div class="seg" role="radiogroup" aria-labelledby="lbl-theme">
+          <div class="seg full" role="radiogroup" aria-labelledby="lbl-theme">
             <label><input type="radio" name="theme" value="light"><span>Light</span></label>
             <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
           </div>
@@ -51,14 +51,22 @@
         <div class="readout" id="readout"></div>
       </div>
       <div class="actions">
-        <button class="btn primary" id="btn-export" type="button">Export sprite</button>
-        <button class="btn" id="btn-reset-view" type="button">Reset view</button>
+        <button class="btn primary" id="btn-export" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export sprite</span>
+        </button>
+        <button class="btn" id="btn-reset-view" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          <span>Reset view</span>
+        </button>
       </div>
-      <p class="hint">Drag to rotate · Shift-drag to move · Scroll or pinch to zoom</p>
+      <p class="hint">
+        <kbd>Drag</kbd> Rotate &nbsp;·&nbsp; <kbd>Shift + Drag</kbd> Pan &nbsp;·&nbsp; <kbd>Scroll</kbd> Zoom
+      </p>
     </div>
 
     <div class="panel-col">
-      <section class="caps reveal" id="caps" hidden>
+      <section class="caps card reveal" id="caps" hidden>
         <span class="lbl">Captures · tap to save again</span>
         <div class="caps-list" id="cap-list"></div>
       </section>
@@ -66,15 +74,18 @@
       <details class="group reveal" open>
         <summary>Model</summary>
         <div class="body">
-          <div>
+          <div class="model-card">
             <div class="mname" id="model-name">Sample robot</div>
             <div class="muted mono" id="model-meta"></div>
           </div>
           <div class="btnrow">
-            <button class="btn" id="btn-load" type="button">Open model…</button>
+            <button class="btn" id="btn-load" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <span>Open model…</span>
+            </button>
             <button class="btn" id="btn-sample" type="button">Sample robot</button>
           </div>
-          <input type="file" id="model-file" accept=".glb,.gltf,.fbx,.obj,.stl,.bin,model/gltf-binary,model/gltf+json,application/octet-stream" multiple hidden>
+          <input type="file" id="model-file" accept=".glb,.gltf,.fbx,.obj,.stl,.bin,image/*" multiple hidden>
           <p class="note">Opens GLB, GLTF, FBX, OBJ and STL. For a .gltf or .fbx with separate texture files, select the textures together with the model. OBJ and STL open with a plain material.</p>
         </div>
       </details>
@@ -85,44 +96,110 @@
           <div class="field"><span class="lbl">Position</span><div class="axes" id="position-axes"></div></div>
           <div class="field"><span class="lbl">Rotation (degrees)</span><div class="axes" id="rotation-axes"></div></div>
           <div class="field"><span class="lbl">Zoom</span><div class="axes" id="zoom-axes"></div></div>
-          <div class="btnrow"><button class="btn" id="btn-reset-transform" type="button">Reset transform</button></div>
+          <div class="btnrow"><button class="btn small" id="btn-reset-transform" type="button">Reset transform</button></div>
+        </div>
+      </details>
+
+      <details class="group reveal" open>
+        <summary>Lighting</summary>
+        <div class="body">
+          <div class="field">
+            <span class="lbl">Quick rigs</span>
+            <div class="btnrow" id="light-rigs">
+              <button class="btn small" type="button" data-rig="studio">Studio</button>
+              <button class="btn small" type="button" data-rig="sun">Warm Sun</button>
+              <button class="btn small" type="button" data-rig="neon">Neon Rim</button>
+              <button class="btn small" type="button" data-rig="dramatic">Dramatic</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="split-lbl">
+              <span class="lbl">Key light</span>
+              <div class="color-chip">
+                <input type="color" id="light-key-color" aria-label="Key light color">
+                <span class="mono muted" id="light-key-hex">#FFFFFF</span>
+              </div>
+            </div>
+            <div class="axes" id="light-key-axes"></div>
+          </div>
+
+          <div class="field">
+            <div class="split-lbl">
+              <span class="lbl">Fill &amp; Rim light</span>
+              <div class="color-chip">
+                <span class="muted" style="font-size:11px">Rim</span>
+                <input type="color" id="light-rim-color" aria-label="Rim light color">
+              </div>
+            </div>
+            <div class="axes" id="light-fill-axes"></div>
+          </div>
+
+          <div class="field">
+            <span class="lbl">Environment &amp; Exposure</span>
+            <div class="axes" id="light-env-axes"></div>
+            <div class="two" style="margin-top:4px">
+              <div class="color-chip-box">
+                <input type="color" id="light-sky-color" aria-label="Sky bounce color">
+                <div>
+                  <div class="lbl" style="font-size:10px">Sky bounce</div>
+                  <div class="mono muted" id="light-sky-hex">#FFFFFF</div>
+                </div>
+              </div>
+              <div class="color-chip-box">
+                <input type="color" id="light-ground-color" aria-label="Ground bounce color">
+                <div>
+                  <div class="lbl" style="font-size:10px">Ground bounce</div>
+                  <div class="mono muted" id="light-ground-hex">#8890A0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn small" id="btn-reset-lighting" type="button">Reset lighting</button>
+          </div>
         </div>
       </details>
 
       <details class="group reveal" open>
         <summary>Export</summary>
         <div class="body">
-          <div class="field">
-            <span class="lbl" id="lbl-format">Format</span>
-            <div class="seg" role="radiogroup" aria-labelledby="lbl-format">
-              <label><input type="radio" name="format" value="png"><span>PNG</span></label>
-              <label><input type="radio" name="format" value="jpg"><span>JPG</span></label>
-              <label><input type="radio" name="format" value="jpeg"><span>JPEG</span></label>
+          <div class="two">
+            <div class="field">
+              <span class="lbl" id="lbl-format">Format</span>
+              <div class="seg full" role="radiogroup" aria-labelledby="lbl-format">
+                <label><input type="radio" name="format" value="png"><span>PNG</span></label>
+                <label><input type="radio" name="format" value="jpg"><span>JPG</span></label>
+                <label><input type="radio" name="format" value="jpeg"><span>JPEG</span></label>
+              </div>
             </div>
-          </div>
-          <div class="field">
-            <span class="lbl" id="lbl-alpha">Alpha</span>
-            <div class="seg" role="radiogroup" aria-labelledby="lbl-alpha">
-              <label><input type="radio" name="alpha" value="opaque"><span>Opaque</span></label>
-              <label><input type="radio" name="alpha" value="transparent"><span>Transparent</span></label>
+            <div class="field">
+              <span class="lbl" id="lbl-alpha">Alpha</span>
+              <div class="seg full" role="radiogroup" aria-labelledby="lbl-alpha">
+                <label><input type="radio" name="alpha" value="opaque"><span>Opaque</span></label>
+                <label><input type="radio" name="alpha" value="transparent"><span>Clear</span></label>
+              </div>
             </div>
           </div>
           <div class="warn" id="warn" role="alert" hidden>Transparent mode can't be used because PNG isn't selected. JPG and JPEG can't store transparency, so the sprite exports with the background below. Choose PNG for a transparent sprite.</div>
           <fieldset class="field" id="bg-set">
             <legend class="lbl">Background</legend>
-            <div class="seg" role="radiogroup" aria-label="Background type">
-              <label><input type="radio" name="bgmode" value="color"><span>Color</span></label>
-              <label><input type="radio" name="bgmode" value="image"><span>Image</span></label>
-            </div>
-            <div class="bgrow" id="bg-color-wrap">
-              <input type="color" id="bg-color" aria-label="Background color">
-              <span class="mono muted" id="bg-color-hex"></span>
-            </div>
-            <div class="bgrow" id="bg-image-wrap" hidden>
-              <span class="thumb-bg" id="bg-thumb"></span>
-              <button class="btn small" id="btn-bg" type="button">Import image…</button>
-              <button class="btn small" id="btn-bg-clear" type="button">Remove</button>
-              <input type="file" id="bg-file" accept="image/*" hidden>
+            <div class="bg-controls">
+              <div class="seg" role="radiogroup" aria-label="Background type">
+                <label><input type="radio" name="bgmode" value="color"><span>Color</span></label>
+                <label><input type="radio" name="bgmode" value="image"><span>Image</span></label>
+              </div>
+              <div class="bgrow" id="bg-color-wrap">
+                <input type="color" id="bg-color" aria-label="Background color">
+                <span class="mono muted" id="bg-color-hex"></span>
+              </div>
+              <div class="bgrow" id="bg-image-wrap" hidden>
+                <span class="thumb-bg" id="bg-thumb"></span>
+                <button class="btn small" id="btn-bg" type="button">Import…</button>
+                <button class="btn small" id="btn-bg-clear" type="button">Remove</button>
+                <input type="file" id="bg-file" accept="image/*" hidden>
+              </div>
             </div>
             <p class="note" id="bg-note"></p>
           </fieldset>
@@ -138,12 +215,12 @@
       <details class="group reveal">
         <summary>Presets</summary>
         <div class="body">
-          <div class="two">
-            <input type="text" id="preset-name" maxlength="40" placeholder="Preset name" aria-label="Preset name" autocomplete="off">
+          <div class="preset-add">
+            <input type="text" id="preset-name" maxlength="40" placeholder="Preset name…" aria-label="Preset name" autocomplete="off">
             <button class="btn" id="btn-preset-save" type="button">Save current</button>
           </div>
           <ul class="presets" id="preset-list"></ul>
-          <p class="note">Presets keep position, rotation, zoom, format, alpha, size and background color.</p>
+          <p class="note">Presets keep position, rotation, zoom, lighting, format, alpha, size and background color.</p>
         </div>
       </details>
 
@@ -152,9 +229,9 @@
         <div class="body">
           <p class="note" id="save-status">Your last used settings are saved automatically in this browser.</p>
           <div class="btnrow">
-            <button class="btn" id="btn-backup" type="button">Export backup</button>
-            <button class="btn" id="btn-import" type="button">Import backup…</button>
-            <button class="btn" id="btn-defaults" type="button">Reset to defaults</button>
+            <button class="btn small" id="btn-backup" type="button">Export backup</button>
+            <button class="btn small" id="btn-import" type="button">Import backup…</button>
+            <button class="btn small" id="btn-defaults" type="button">Reset to defaults</button>
           </div>
           <input type="file" id="backup-file" accept=".json,application/json" hidden>
           <p class="note">A backup file holds your settings, accent color and presets, so you can move them to another browser.</p>
