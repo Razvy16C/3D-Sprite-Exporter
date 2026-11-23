@@ -173,6 +173,8 @@ input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid v
 .warn { padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; }
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .bgrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.folder-name { padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-name.set { border-color: var(--accent); color: var(--accent); }
 .thumb-bg { width: 44px; height: 36px; border-radius: 6px; border: 1px solid var(--line-strong); background: transparent center / cover no-repeat; }
 .presets { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
 .presets li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
@@ -208,45 +210,3 @@ input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid v
   *, *::before, *::after { transition: none !important; animation: none !important; }
   .js-anim .reveal:not(.in), .js-anim .reveal.out:not(.in) { opacity: 1; transform: none; }
 }
-
-/* Lighting & wider axis labels */
-.split-lbl {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.color-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.color-chip input[type=color] {
-  width: 26px;
-  height: 22px;
-  padding: 1px;
-  border-radius: 5px;
-}
-
-.color-chip-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-}
-
-.color-chip-box input[type=color] {
-  width: 28px;
-  height: 28px;
-  flex: none;
-}
-
-.axis.wide {
-  grid-template-columns: 36px minmax(0, 1fr) 68px;
-}
-

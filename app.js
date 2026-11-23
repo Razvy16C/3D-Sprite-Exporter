@@ -19,27 +19,11 @@
   try { localStorage.setItem('spriteBooth.test', '1'); localStorage.removeItem('spriteBooth.test'); } catch (e) { storageOK = false; }
 
   /* ---------- settings model ---------- */
-  function defaultLight() {
-    return {
-      keyAzimuth: 37,
-      keyElevation: 45,
-      keyIntensity: 1.1,
-      keyColor: '#ffffff',
-      fillIntensity: 0.4,
-      rimIntensity: 0.35,
-      rimColor: '#c7d8ff',
-      ambientIntensity: 0.9,
-      skyColor: '#ffffff',
-      groundColor: '#8890a0',
-      exposure: 1.0
-    };
-  }
   function defaults() {
     var dark = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
     return {
       theme: dark ? 'dark' : 'light', accent: '#2d55e6',
       pos: { x: 0, y: 0, z: 0 }, rot: { x: 12, y: -28, z: 0 }, zoom: 1,
-      light: defaultLight(),
       format: 'png', size: 512, alpha: 'transparent',
       bgMode: 'color', bgColor: '#ffffff', bgImage: null, filename: 'sprite'
     };
@@ -47,21 +31,6 @@
   function num(v, min, max, d) { v = parseFloat(v); return isFinite(v) ? clamp(v, min, max) : d; }
   var IMG_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+\/=]+$/;
   var HEX_RE = /^#[0-9a-f]{6}$/i;
-  function sanitizeLight(l, base) {
-    var d = clone(base || defaultLight()); l = l || {};
-    d.keyAzimuth = num(l.keyAzimuth, -180, 180, d.keyAzimuth);
-    d.keyElevation = num(l.keyElevation, -90, 90, d.keyElevation);
-    d.keyIntensity = num(l.keyIntensity, 0, 5, d.keyIntensity);
-    if (typeof l.keyColor === 'string' && HEX_RE.test(l.keyColor)) d.keyColor = l.keyColor.toLowerCase();
-    d.fillIntensity = num(l.fillIntensity, 0, 3, d.fillIntensity);
-    d.rimIntensity = num(l.rimIntensity, 0, 4, d.rimIntensity);
-    if (typeof l.rimColor === 'string' && HEX_RE.test(l.rimColor)) d.rimColor = l.rimColor.toLowerCase();
-    d.ambientIntensity = num(l.ambientIntensity, 0, 3, d.ambientIntensity);
-    if (typeof l.skyColor === 'string' && HEX_RE.test(l.skyColor)) d.skyColor = l.skyColor.toLowerCase();
-    if (typeof l.groundColor === 'string' && HEX_RE.test(l.groundColor)) d.groundColor = l.groundColor.toLowerCase();
-    d.exposure = num(l.exposure, 0.2, 2.5, d.exposure);
-    return d;
-  }
   function sanitize(o, base) {
     var s = clone(base); o = o || {};
     if (o.theme === 'light' || o.theme === 'dark') s.theme = o.theme;
@@ -70,7 +39,6 @@
     s.pos = { x: num(p.x, -2, 2, s.pos.x), y: num(p.y, -2, 2, s.pos.y), z: num(p.z, -2, 2, s.pos.z) };
     s.rot = { x: num(r.x, -180, 180, s.rot.x), y: num(r.y, -180, 180, s.rot.y), z: num(r.z, -180, 180, s.rot.z) };
     s.zoom = num(o.zoom, 0.3, 3, s.zoom);
-    s.light = sanitizeLight(o.light, s.light);
     if (['png', 'jpg', 'jpeg'].indexOf(o.format) > -1) s.format = o.format;
     if (SIZES.indexOf(+o.size) > -1) s.size = +o.size;
     if (o.alpha === 'opaque' || o.alpha === 'transparent') s.alpha = o.alpha;
@@ -89,7 +57,7 @@
     });
   })();
   function presetFrom(s) {
-    return { pos: clone(s.pos), rot: clone(s.rot), zoom: s.zoom, light: clone(s.light), format: s.format, size: s.size, alpha: s.alpha, bgMode: s.bgMode, bgColor: s.bgColor };
+    return { pos: clone(s.pos), rot: clone(s.rot), zoom: s.zoom, format: s.format, size: s.size, alpha: s.alpha, bgMode: s.bgMode, bgColor: s.bgColor };
   }
 
   /* ---------- accent color ---------- */
@@ -129,7 +97,6 @@
   /* ---------- three.js scene ---------- */
   var stage = $('#stage'), canvas = $('#view');
   var renderer, scene, camera, pivot, holder;
-  var lights = {};
   var queued = false;
   function requestRender() {
     if (queued || !renderer) return;
@@ -140,63 +107,15 @@
     if (!window.THREE) throw new Error('three.js did not load');
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
     renderer.setClearColor(0x000000, 0);
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-
-    lights.hemi = new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.9);
-    scene.add(lights.hemi);
-
-    lights.ambient = new THREE.AmbientLight(0xffffff, 0.2);
-    scene.add(lights.ambient);
-
-    lights.key = new THREE.DirectionalLight(0xffffff, 1.1);
-    scene.add(lights.key);
-
-    lights.fill = new THREE.DirectionalLight(0xffffff, 0.4);
-    scene.add(lights.fill);
-
-    lights.rim = new THREE.DirectionalLight(0xc7d8ff, 0.35);
-    scene.add(lights.rim);
-
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.9));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+    var key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(3, 5, 4); scene.add(key);
+    var fill = new THREE.DirectionalLight(0xffffff, 0.4); fill.position.set(-4, 1, -3); scene.add(fill);
     pivot = new THREE.Group(); holder = new THREE.Group();
     pivot.add(holder); scene.add(pivot);
-    applyLighting();
-  }
-  function applyLighting() {
-    if (!renderer || !lights.key) return;
-    var L = state.light;
-    var az = rad(L.keyAzimuth);
-    var el = rad(L.keyElevation);
-    var dist = 7;
-    var cosEl = Math.cos(el);
-    var kx = dist * cosEl * Math.sin(az);
-    var ky = dist * Math.sin(el);
-    var kz = dist * cosEl * Math.cos(az);
-
-    lights.key.position.set(kx, ky, kz);
-    lights.key.color.set(L.keyColor);
-    lights.key.intensity = L.keyIntensity;
-
-    // Fill sits opposite the key azimuth at softer elevation
-    lights.fill.position.set(-kx * 0.85, Math.max(1.2, -ky * 0.35 + 1.5), -kz * 0.5 + 2.5);
-    lights.fill.color.set(L.skyColor);
-    lights.fill.intensity = L.fillIntensity;
-
-    // Rim sits behind the model opposite key light for edge highlights
-    lights.rim.position.set(-kx * 0.7, Math.abs(ky) * 0.6 + 2.0, -Math.abs(kz) - 3.5);
-    lights.rim.color.set(L.rimColor);
-    lights.rim.intensity = L.rimIntensity;
-
-    lights.hemi.color.set(L.skyColor);
-    lights.hemi.groundColor.set(L.groundColor);
-    lights.hemi.intensity = L.ambientIntensity;
-    lights.ambient.intensity = L.ambientIntensity * 0.22;
-
-    renderer.toneMappingExposure = L.exposure;
-    requestRender();
   }
   function resize() {
     if (!renderer) return;
@@ -324,32 +243,20 @@
   }
 
   /* ---------- axis rows ---------- */
-  function makeRow(host, id, label, aria, min, max, step, wide) {
-    var row = document.createElement('div'); row.className = 'axis' + (wide ? ' wide' : '');
+  function makeRow(host, id, label, aria, min, max, step) {
+    var row = document.createElement('div'); row.className = 'axis';
     row.innerHTML = '<label for="' + id + '">' + label + '</label>' +
       '<input type="range" id="' + id + '-range" aria-label="' + aria + '" min="' + min + '" max="' + max + '" step="' + step + '">' +
       '<input type="number" id="' + id + '" step="any" inputmode="decimal">';
     host.appendChild(row);
   }
   var GROUPS = { pos: [-2, 2], rot: [-180, 180] };
-  var LIGHT_SPECS = [
-    { id: 'light-key-az', key: 'keyAzimuth', host: '#light-key-axes', label: 'AZM', aria: 'Key light azimuth angle', min: -180, max: 180, step: 1, dec: 0 },
-    { id: 'light-key-el', key: 'keyElevation', host: '#light-key-axes', label: 'ELV', aria: 'Key light elevation angle', min: -90, max: 90, step: 1, dec: 0 },
-    { id: 'light-key-int', key: 'keyIntensity', host: '#light-key-axes', label: 'INT', aria: 'Key light intensity', min: 0, max: 5, step: 0.05, dec: 2 },
-    { id: 'light-fill-int', key: 'fillIntensity', host: '#light-fill-axes', label: 'FILL', aria: 'Fill light intensity', min: 0, max: 3, step: 0.05, dec: 2 },
-    { id: 'light-rim-int', key: 'rimIntensity', host: '#light-fill-axes', label: 'RIM', aria: 'Rim light intensity', min: 0, max: 4, step: 0.05, dec: 2 },
-    { id: 'light-amb-int', key: 'ambientIntensity', host: '#light-env-axes', label: 'AMB', aria: 'Ambient bounce intensity', min: 0, max: 3, step: 0.05, dec: 2 },
-    { id: 'light-exp', key: 'exposure', host: '#light-env-axes', label: 'EXP', aria: 'Scene exposure', min: 0.2, max: 2.5, step: 0.05, dec: 2 }
-  ];
   function buildAxes() {
     ['x', 'y', 'z'].forEach(function (k) {
       makeRow($('#position-axes'), 'pos-' + k, k.toUpperCase(), 'Position ' + k.toUpperCase(), -2, 2, 0.01);
       makeRow($('#rotation-axes'), 'rot-' + k, k.toUpperCase(), 'Rotation ' + k.toUpperCase(), -180, 180, 0.5);
     });
     makeRow($('#zoom-axes'), 'zoom', '×', 'Zoom', 0.3, 3, 0.01);
-    LIGHT_SPECS.forEach(function (sp) {
-      makeRow($(sp.host), sp.id, sp.label, sp.aria, sp.min, sp.max, sp.step, true);
-    });
   }
   function fmt(v, d) { return String(Number(v.toFixed(d))); }
   function setAxis(group, key, v) {
@@ -364,9 +271,6 @@
     };
     ['x', 'y', 'z'].forEach(function (k) { set('pos-' + k, state.pos[k], 2); set('rot-' + k, state.rot[k], 1); });
     set('zoom', state.zoom, 2);
-    LIGHT_SPECS.forEach(function (sp) {
-      set(sp.id, state.light[sp.key], sp.dec);
-    });
   }
   function wireAxes() {
     function bind(id, group, key) {
@@ -382,41 +286,7 @@
     }
     ['x', 'y', 'z'].forEach(function (k) { bind('pos-' + k, 'pos', k); bind('rot-' + k, 'rot', k); });
     bind('zoom', 'zoom', null);
-
-    LIGHT_SPECS.forEach(function (sp) {
-      var n = $('#' + sp.id), r = $('#' + sp.id + '-range');
-      r.addEventListener('input', function () {
-        state.light[sp.key] = clamp(parseFloat(r.value), sp.min, sp.max);
-        syncAxes(r); applyLighting(); persist();
-      });
-      n.addEventListener('input', function () {
-        var v = parseFloat(n.value); if (!isFinite(v)) return;
-        state.light[sp.key] = clamp(v, sp.min, sp.max);
-        syncAxes(n); applyLighting(); persist();
-      });
-      n.addEventListener('change', function () { syncAxes(); });
-    });
   }
-
-  /* ---------- lighting rigs ---------- */
-  var LIGHT_RIGS = {
-    studio: defaultLight(),
-    sun: {
-      keyAzimuth: 52, keyElevation: 58, keyIntensity: 1.65, keyColor: '#fff1d6',
-      fillIntensity: 0.45, rimIntensity: 0.3, rimColor: '#ffe4b5',
-      ambientIntensity: 0.95, skyColor: '#dbeafe', groundColor: '#a89f91', exposure: 1.05
-    },
-    neon: {
-      keyAzimuth: -48, keyElevation: 28, keyIntensity: 1.35, keyColor: '#38bdf8',
-      fillIntensity: 0.25, rimIntensity: 1.5, rimColor: '#f43f5e',
-      ambientIntensity: 0.65, skyColor: '#818cf8', groundColor: '#1e1b4b', exposure: 1.1
-    },
-    dramatic: {
-      keyAzimuth: 72, keyElevation: 20, keyIntensity: 2.1, keyColor: '#ffffff',
-      fillIntensity: 0.1, rimIntensity: 0.85, rimColor: '#93c5fd',
-      ambientIntensity: 0.35, skyColor: '#64748b', groundColor: '#18181b', exposure: 1.05
-    }
-  };
 
   /* ---------- background helpers ---------- */
   var bgImgEl = null;
@@ -470,13 +340,6 @@
     $('#accent-custom').value = state.accent;
     $('#accent-hex').textContent = state.accent.toUpperCase();
     syncAxes();
-    $('#light-key-color').value = state.light.keyColor;
-    $('#light-key-hex').textContent = state.light.keyColor.toUpperCase();
-    $('#light-rim-color').value = state.light.rimColor;
-    $('#light-sky-color').value = state.light.skyColor;
-    $('#light-sky-hex').textContent = state.light.skyColor.toUpperCase();
-    $('#light-ground-color').value = state.light.groundColor;
-    $('#light-ground-hex').textContent = state.light.groundColor.toUpperCase();
     $('#size').value = String(state.size);
     $('#filename').value = state.filename;
     $('#bg-color').value = state.bgColor;
@@ -494,7 +357,6 @@
     else if (state.bgMode === 'image' && state.bgImage) stage.style.background = 'center / cover no-repeat url("' + state.bgImage + '") ' + state.bgColor;
     else stage.style.background = state.bgColor;
     applyTransform();
-    applyLighting();
   }
 
   /* ---------- persistence ---------- */
@@ -514,7 +376,7 @@
 
   /* ---------- presets ---------- */
   function P(name, rot, extra) {
-    return { name: name, builtin: true, s: Object.assign({ pos: { x: 0, y: 0, z: 0 }, rot: rot, zoom: 1, light: defaultLight(), format: 'png', size: 512, alpha: 'transparent', bgMode: 'color', bgColor: '#ffffff' }, extra || {}) };
+    return { name: name, builtin: true, s: Object.assign({ pos: { x: 0, y: 0, z: 0 }, rot: rot, zoom: 1, format: 'png', size: 512, alpha: 'transparent', bgMode: 'color', bgColor: '#ffffff' }, extra || {}) };
   }
   var BUILTIN = [
     P('Front', { x: 0, y: 0, z: 0 }),
@@ -602,6 +464,95 @@
     return Promise.resolve(true);
   }
 
+  /* ---------- save folder ---------- */
+  var folder = { handle: null, supported: typeof window.showDirectoryPicker === 'function' };
+  function idb(mode, fn) {
+    return new Promise(function (resolve) {
+      try {
+        var rq = indexedDB.open('spriteBooth', 1);
+        rq.onupgradeneeded = function () { rq.result.createObjectStore('kv'); };
+        rq.onerror = function () { resolve(null); };
+        rq.onsuccess = function () {
+          var db = rq.result;
+          try {
+            var tx = db.transaction('kv', mode), r = fn(tx.objectStore('kv'));
+            tx.oncomplete = function () { db.close(); resolve(r && r.result !== undefined ? r.result : null); };
+            tx.onerror = tx.onabort = function () { db.close(); resolve(null); };
+          } catch (e) { db.close(); resolve(null); }
+        };
+      } catch (e) { resolve(null); }
+    });
+  }
+  function syncFolder() {
+    var h = folder.handle;
+    var nameEl = $('#folder-name');
+    nameEl.textContent = h ? h.name : 'Browser downloads';
+    nameEl.classList.toggle('set', !!h);
+    $('#btn-folder').disabled = !folder.supported;
+    $('#btn-folder').textContent = h ? 'Change folder…' : 'Choose folder…';
+    $('#btn-folder-clear').hidden = !h;
+    $('#folder-note').textContent = !folder.supported
+      ? 'This browser cannot save straight to a folder, so sprites go to its normal downloads folder. Chrome or Edge on desktop can save to a folder you pick.'
+      : h ? 'Exports save here with no prompt. Existing files are never overwritten; a number is added to the name instead.'
+          : 'Pick a folder once and exports save there automatically. Until then, sprites download as usual.';
+  }
+  function loadFolder() {
+    if (!folder.supported) return;
+    idb('readonly', function (s) { return s.get('dir'); }).then(function (h) {
+      if (h && h.kind === 'directory') { folder.handle = h; syncFolder(); }
+    });
+  }
+  function pickFolder() {
+    if (!folder.supported) return;
+    window.showDirectoryPicker({ id: 'sprite-export', mode: 'readwrite' }).then(function (h) {
+      folder.handle = h; syncFolder();
+      idb('readwrite', function (s) { return s.put(h, 'dir'); });
+      toast('Sprites will save to "' + h.name + '".');
+    }, function (err) {
+      if (err && err.name === 'AbortError') return;
+      toast(err && err.name === 'SecurityError'
+        ? 'This view does not allow folder access. Open the page in its own browser tab and try again.'
+        : 'Could not open the folder picker. ' + ((err && err.message) || ''), 'warn');
+    });
+  }
+  function clearFolder() {
+    folder.handle = null; syncFolder();
+    idb('readwrite', function (s) { return s.delete('dir'); });
+    toast('Sprites will download normally.');
+  }
+  function ensureWrite(dir) {
+    var opts = { mode: 'readwrite' };
+    return Promise.resolve().then(function () { return dir.queryPermission(opts); }).then(function (p) {
+      return p === 'granted' ? p : dir.requestPermission(opts);
+    }).then(function (p) { return p === 'granted'; }, function () { return false; });
+  }
+  function uniqueName(dir, filename) {
+    var dot = filename.lastIndexOf('.'), base = filename.slice(0, dot), ext = filename.slice(dot), n = 1;
+    function next() {
+      var name = n === 1 ? filename : base + '-' + n + ext;
+      return dir.getFileHandle(name).then(function () {
+        if (++n > 999) throw new Error('Too many files with this name.');
+        return next();
+      }, function (e) { if (e && e.name === 'NotFoundError') return name; throw e; });
+    }
+    return next();
+  }
+  function saveSprite(blob, filename, permission) {
+    var dir = folder.handle;
+    if (!dir) return saveBlob(blob, filename);
+    return (permission || ensureWrite(dir)).then(function (ok) {
+      if (!ok) { toast('Folder access was not allowed. Downloading instead.', 'warn'); return saveBlob(blob, filename); }
+      return uniqueName(dir, filename).then(function (name) {
+        return dir.getFileHandle(name, { create: true }).then(function (fh) { return fh.createWritable(); }).then(function (w) {
+          return w.write(blob).then(function () { return w.close(); });
+        }).then(function () { toast('Saved ' + name + ' to "' + dir.name + '".'); return true; });
+      });
+    }).catch(function (err) {
+      toast('Could not write to "' + dir.name + '" (' + ((err && err.name) || 'error') + '). Downloading instead.', 'warn');
+      return saveBlob(blob, filename);
+    });
+  }
+
   /* ---------- captures ---------- */
   var caps = [];
   function addCapture(blob, filename) {
@@ -612,7 +563,7 @@
       var b = document.createElement('button'); b.type = 'button'; b.className = 'thumb';
       b.title = 'Save ' + c.filename + ' again'; b.setAttribute('aria-label', 'Save ' + c.filename + ' again');
       var im = document.createElement('img'); im.src = c.url; im.alt = '';
-      b.appendChild(im); b.addEventListener('click', function () { saveBlob(c.blob, c.filename); });
+      b.appendChild(im); b.addEventListener('click', function () { saveSprite(c.blob, c.filename); });
       host.appendChild(b);
     });
     $('#caps').hidden = false;
@@ -623,6 +574,7 @@
   function exportSprite() {
     if (exporting || !renderer) return;
     exporting = true; $('#btn-export').disabled = true;
+    var permission = folder.handle ? ensureWrite(folder.handle) : null; /* asked now, while the click is still fresh */
     var size = state.size, wantT = state.alpha === 'transparent', isPng = state.format === 'png';
     var transparent = wantT && isPng;
     if (wantT && !isPng) toast("Transparent mode couldn't be used because PNG isn't selected. The sprite exports with the background instead.", 'warn');
@@ -647,7 +599,7 @@
       exporting = false; $('#btn-export').disabled = false;
       if (!blob) { toast('The sprite could not be created. Try a smaller size.', 'warn'); return; }
       addCapture(blob, filename);
-      saveBlob(blob, filename);
+      saveSprite(blob, filename, permission);
     }, mime, 0.92);
   }
 
@@ -770,24 +722,10 @@
     });
     $('#accent-custom').addEventListener('input', function (e) { state.accent = e.target.value.toLowerCase(); syncAll(); persist(); });
     $('#bg-color').addEventListener('input', function (e) { state.bgColor = e.target.value; syncAll(); persist(); });
-
-    /* Lighting color pickers & quick rigs */
-    $('#light-key-color').addEventListener('input', function (e) { state.light.keyColor = e.target.value.toLowerCase(); syncAll(); persist(); });
-    $('#light-rim-color').addEventListener('input', function (e) { state.light.rimColor = e.target.value.toLowerCase(); syncAll(); persist(); });
-    $('#light-sky-color').addEventListener('input', function (e) { state.light.skyColor = e.target.value.toLowerCase(); syncAll(); persist(); });
-    $('#light-ground-color').addEventListener('input', function (e) { state.light.groundColor = e.target.value.toLowerCase(); syncAll(); persist(); });
-    $('#light-rigs').addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-rig]');
-      if (!btn) return;
-      var rig = LIGHT_RIGS[btn.dataset.rig];
-      if (rig) { state.light = clone(rig); syncAll(); persist(); toast('Applied ' + btn.textContent + ' lighting'); }
-    });
-    $('#btn-reset-lighting').addEventListener('click', function () {
-      state.light = defaultLight(); syncAll(); persist();
-    });
-
     $('#filename').addEventListener('input', function (e) { state.filename = e.target.value; persist(); });
     $('#btn-export').addEventListener('click', exportSprite);
+    $('#btn-folder').addEventListener('click', pickFolder);
+    $('#btn-folder-clear').addEventListener('click', clearFolder);
     $('#btn-reset-view').addEventListener('click', function () {
       var d = defaults(); state.pos = d.pos; state.rot = d.rot; state.zoom = d.zoom; syncAll(); persist();
     });
@@ -834,6 +772,7 @@
     stage.appendChild(msg); $('#btn-export').disabled = true;
   }
   syncAll();
+  syncFolder(); loadFolder();
   doPersist();
   initReveal();
 })();
