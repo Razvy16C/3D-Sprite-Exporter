@@ -3,6 +3,7 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var root = document.documentElement;
   var SIZES = [64, 128, 256, 512, 1024, 2048];
+  var LIGHT = { key: [0, 3, 0.05], az: [-180, 180, 1], el: [-10, 90, 1], fill: [0, 2, 0.05], amb: [0, 2, 0.05] };
   var SWATCHES = ['#2d55e6', '#7c5cff', '#0ea5a4', '#16a34a', '#f59e0b', '#f26b21', '#e5484d', '#ec4899', '#52525b'];
   var KEY_SETTINGS = 'spriteBooth.settings.v1';
   var KEY_PRESETS = 'spriteBooth.presets.v1';
@@ -24,6 +25,7 @@
     return {
       theme: dark ? 'dark' : 'light', accent: '#2d55e6',
       pos: { x: 0, y: 0, z: 0 }, rot: { x: 12, y: -28, z: 0 }, zoom: 1,
+      light: { key: 1.1, az: 37, el: 45, fill: 0.4, amb: 0.9, color: '#ffffff' },
       format: 'png', size: 512, alpha: 'transparent',
       bgMode: 'color', bgColor: '#ffffff', bgImage: null, filename: 'sprite'
     };
@@ -39,6 +41,13 @@
     s.pos = { x: num(p.x, -2, 2, s.pos.x), y: num(p.y, -2, 2, s.pos.y), z: num(p.z, -2, 2, s.pos.z) };
     s.rot = { x: num(r.x, -180, 180, s.rot.x), y: num(r.y, -180, 180, s.rot.y), z: num(r.z, -180, 180, s.rot.z) };
     s.zoom = num(o.zoom, 0.3, 3, s.zoom);
+    var l = o.light || {}, b = s.light;
+    s.light = {
+      key: num(l.key, LIGHT.key[0], LIGHT.key[1], b.key), az: num(l.az, LIGHT.az[0], LIGHT.az[1], b.az),
+      el: num(l.el, LIGHT.el[0], LIGHT.el[1], b.el), fill: num(l.fill, LIGHT.fill[0], LIGHT.fill[1], b.fill),
+      amb: num(l.amb, LIGHT.amb[0], LIGHT.amb[1], b.amb),
+      color: typeof l.color === 'string' && HEX_RE.test(l.color) ? l.color.toLowerCase() : b.color
+    };
     if (['png', 'jpg', 'jpeg'].indexOf(o.format) > -1) s.format = o.format;
     if (SIZES.indexOf(+o.size) > -1) s.size = +o.size;
     if (o.alpha === 'opaque' || o.alpha === 'transparent') s.alpha = o.alpha;
@@ -96,7 +105,7 @@
 
   /* ---------- three.js scene ---------- */
   var stage = $('#stage'), canvas = $('#view');
-  var renderer, scene, camera, pivot, holder;
+  var renderer, scene, camera, pivot, holder, hemiLight, ambLight, keyLight, fillLight;
   var queued = false;
   function requestRender() {
     if (queued || !renderer) return;
@@ -110,10 +119,10 @@
     renderer.setClearColor(0x000000, 0);
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.9));
-    scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-    var key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(3, 5, 4); scene.add(key);
-    var fill = new THREE.DirectionalLight(0xffffff, 0.4); fill.position.set(-4, 1, -3); scene.add(fill);
+    hemiLight = new THREE.HemisphereLight(0xffffff, 0x8890a0, 0.9); scene.add(hemiLight);
+    ambLight = new THREE.AmbientLight(0xffffff, 0.25); scene.add(ambLight);
+    keyLight = new THREE.DirectionalLight(0xffffff, 1.1); scene.add(keyLight);
+    fillLight = new THREE.DirectionalLight(0xffffff, 0.4); scene.add(fillLight);
     pivot = new THREE.Group(); holder = new THREE.Group();
     pivot.add(holder); scene.add(pivot);
   }
@@ -126,8 +135,17 @@
     camera.aspect = w / h; camera.updateProjectionMatrix();
     requestRender();
   }
+  function applyLighting() {
+    var L = state.light, az = rad(L.az), el = rad(L.el), fe = rad(10), fa = az + Math.PI;
+    keyLight.position.set(6.4 * Math.cos(el) * Math.sin(az), 6.4 * Math.sin(el), 6.4 * Math.cos(el) * Math.cos(az));
+    fillLight.position.set(5 * Math.cos(fe) * Math.sin(fa), 5 * Math.sin(fe), 5 * Math.cos(fe) * Math.cos(fa));
+    keyLight.intensity = L.key; fillLight.intensity = L.fill;
+    keyLight.color.set(L.color); fillLight.color.set(L.color);
+    hemiLight.intensity = L.amb; ambLight.intensity = L.amb * 0.28;
+  }
   function applyTransform() {
     if (!renderer) return;
+    applyLighting();
     pivot.position.set(state.pos.x, state.pos.y, state.pos.z);
     pivot.rotation.set(rad(state.rot.x), rad(state.rot.y), rad(state.rot.z), 'XYZ');
     camera.position.set(0, 0, 5 / state.zoom);
@@ -257,10 +275,16 @@
       makeRow($('#rotation-axes'), 'rot-' + k, k.toUpperCase(), 'Rotation ' + k.toUpperCase(), -180, 180, 0.5);
     });
     makeRow($('#zoom-axes'), 'zoom', '×', 'Zoom', 0.3, 3, 0.01);
+    [['key-axes', 'lt-key', 'Intensity', 'Key light intensity', 'key'], ['key-axes', 'lt-az', 'Angle', 'Key light angle', 'az'],
+     ['key-axes', 'lt-el', 'Height', 'Key light height', 'el'], ['fill-axes', 'lt-fill', 'Fill', 'Fill light intensity', 'fill'],
+     ['fill-axes', 'lt-amb', 'Ambient', 'Ambient light level', 'amb']].forEach(function (r) {
+      makeRow($('#' + r[0]), r[1], r[2], r[3], LIGHT[r[4]][0], LIGHT[r[4]][1], LIGHT[r[4]][2]);
+    });
   }
   function fmt(v, d) { return String(Number(v.toFixed(d))); }
   function setAxis(group, key, v) {
     if (group === 'zoom') state.zoom = clamp(v, 0.3, 3);
+    else if (group === 'light') state.light[key] = clamp(v, LIGHT[key][0], LIGHT[key][1]);
     else state[group][key] = clamp(v, GROUPS[group][0], GROUPS[group][1]);
   }
   function syncAxes(except) {
@@ -271,6 +295,8 @@
     };
     ['x', 'y', 'z'].forEach(function (k) { set('pos-' + k, state.pos[k], 2); set('rot-' + k, state.rot[k], 1); });
     set('zoom', state.zoom, 2);
+    set('lt-key', state.light.key, 2); set('lt-az', state.light.az, 0); set('lt-el', state.light.el, 0);
+    set('lt-fill', state.light.fill, 2); set('lt-amb', state.light.amb, 2);
   }
   function wireAxes() {
     function bind(id, group, key) {
@@ -286,6 +312,7 @@
     }
     ['x', 'y', 'z'].forEach(function (k) { bind('pos-' + k, 'pos', k); bind('rot-' + k, 'rot', k); });
     bind('zoom', 'zoom', null);
+    ['key', 'az', 'el', 'fill', 'amb'].forEach(function (k) { bind('lt-' + k, 'light', k); });
   }
 
   /* ---------- background helpers ---------- */
@@ -343,6 +370,8 @@
     $('#size').value = String(state.size);
     $('#filename').value = state.filename;
     $('#bg-color').value = state.bgColor;
+    $('#light-color').value = state.light.color;
+    $('#light-color-hex').textContent = state.light.color.toUpperCase();
     $('#bg-color-hex').textContent = state.bgColor.toUpperCase();
     $('#bg-color-wrap').hidden = state.bgMode !== 'color';
     $('#bg-image-wrap').hidden = state.bgMode !== 'image';
@@ -724,6 +753,8 @@
     $('#bg-color').addEventListener('input', function (e) { state.bgColor = e.target.value; syncAll(); persist(); });
     $('#filename').addEventListener('input', function (e) { state.filename = e.target.value; persist(); });
     $('#btn-export').addEventListener('click', exportSprite);
+    $('#light-color').addEventListener('input', function (e) { state.light.color = e.target.value.toLowerCase(); syncAll(); persist(); });
+    $('#btn-reset-light').addEventListener('click', function () { state.light = defaults().light; syncAll(); persist(); });
     $('#btn-folder').addEventListener('click', pickFolder);
     $('#btn-folder-clear').addEventListener('click', clearFolder);
     $('#btn-reset-view').addEventListener('click', function () {

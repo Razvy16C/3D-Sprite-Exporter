@@ -153,6 +153,7 @@ fieldset:disabled { opacity: .45; }
 .btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
 .axes { display: grid; gap: 8px; }
 .axis { display: grid; grid-template-columns: 16px minmax(0, 1fr) 78px; gap: 12px; align-items: center; }
+.axes.wide .axis { grid-template-columns: 62px minmax(0, 1fr) 78px; }
 .axis label { font: 500 12px var(--font-mono); color: var(--muted); }
 input[type=range] { width: 100%; min-width: 0; accent-color: var(--accent); margin: 0; }
 input[type=number], input[type=text], select {

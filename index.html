@@ -72,7 +72,7 @@
             <button class="btn" id="btn-load" type="button">Open model…</button>
             <button class="btn" id="btn-sample" type="button">Sample robot</button>
           </div>
-          <input type="file" id="model-file" accept="*/*" multiple hidden>
+          <input type="file" id="model-file" accept=".glb,.gltf,.fbx,.obj,.stl,.bin,image/*" multiple hidden>
           <p class="note">Opens GLB, GLTF, FBX, OBJ and STL. For a .gltf or .fbx with separate texture files, select the textures together with the model. OBJ and STL open with a plain material.</p>
         </div>
       </details>
@@ -84,6 +84,22 @@
           <div class="field"><span class="lbl">Rotation (degrees)</span><div class="axes" id="rotation-axes"></div></div>
           <div class="field"><span class="lbl">Zoom</span><div class="axes" id="zoom-axes"></div></div>
           <div class="btnrow"><button class="btn" id="btn-reset-transform" type="button">Reset transform</button></div>
+        </div>
+      </details>
+
+      <details class="group reveal" open>
+        <summary>Lighting</summary>
+        <div class="body">
+          <div class="field"><span class="lbl">Key light</span><div class="axes wide" id="key-axes"></div></div>
+          <div class="field"><span class="lbl">Fill and ambient</span><div class="axes wide" id="fill-axes"></div></div>
+          <div class="field">
+            <span class="lbl">Light color</span>
+            <div class="bgrow">
+              <input type="color" id="light-color" aria-label="Light color">
+              <span class="mono muted" id="light-color-hex"></span>
+            </div>
+          </div>
+          <div class="btnrow"><button class="btn" id="btn-reset-light" type="button">Reset lighting</button></div>
         </div>
       </details>
 
